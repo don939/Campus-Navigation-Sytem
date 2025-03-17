@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Swiper demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
+  <link rel="icon" type="image/png" href="../../images\logo3.png ">
+  <script src="../../scripts/vendors/pace.min.js"></script>
+  <script src="../../scripts/vendors/TweenMax.min.js"></script>
+   
+  <link rel="stylesheet" href="../../styles/style.min.css?var=1.7">
+  <style>
+    html,
+    body {
+      position: relative;
+      height: 100%;
+    }
+
+    body {
+      background: #eee;
+      font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      color: #000;
+      margin: 0;
+      padding: 0;
+    }
+
+    swiper-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    swiper-slide {
+      text-align: center;
+      font-size: 18px;
+      background: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    swiper-slide img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+
+    <div class="cursor"></div>
+    <div class="follower"></div>
+    <div class="container">
+      <header class="header">
+
+        <div class="header-menu-left-container">
+
+          <a href="map.html" class="header-menu-left left-in-right line-light c-dark">Guide</a>
+        </div>
+        <div class="header-menu-right-container">
+          <a href="about.html" class="header-menu-right left-in-right line-light c-dark">About</a>
+        </div>
+      </header>
+  <swiper-container class="mySwiper" pagination="true" pagination-clickable="true" direction="vertical"
+    space-between="30" mousewheel="true">
+    <swiper-slide>Slide 1</swiper-slide>
+    <swiper-slide>Slide 2</swiper-slide>
+    <swiper-slide>Slide 3</swiper-slide>
+    <swiper-slide>Slide 4</swiper-slide>
+    <swiper-slide>Slide 5</swiper-slide>
+    <swiper-slide>Slide 6</swiper-slide>
+    <swiper-slide>Slide 7</swiper-slide>
+    <swiper-slide>Slide 8</swiper-slide>
+    <swiper-slide>Slide 9</swiper-slide>
+  </swiper-container>
+  <footer class="footer">
+    <div class="footer-menu-left-container">
+      <p class="footer-menu-right c-dark">&copy; 2023</p>
+    </div>
+    <div class="footer-menu-right-container">
+      <a href="mailto:tidalwavetech@gmail.com" class="footer-menu-left left-in-right line-light c-dark">Mail</a>
+    </div>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-element-bundle.min.js"></script>
+  <script src="./script.js"></script>
+  <script src="../../scripts\vendors\luxy.min.js"></script>
+  <script src="../../scripts\vendors\jquery-3.5.1.min.js"></script>
+  <script src="../../scripts/script.min.js?var=1.5"></script>
+</body>
+
+</html>

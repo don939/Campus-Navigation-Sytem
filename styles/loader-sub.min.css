@@ -1,0 +1,22 @@
+.pace {
+    display: none
+}
+
+.loader-bg {
+    -webkit-transform: translateY(100vh);
+    transform: translateY(100vh);
+    -webkit-transition: all .5s cubic-bezier(.96, .37, .25, 1);
+    transition: all .5s cubic-bezier(.96, .37, .25, 1)
+}
+
+.pace-running .loader-bg {
+    -webkit-transform: translateY(0);
+    transform: translateY(0)
+}
+
+.pace-done .loader-bg {
+    -webkit-transform: translateY(-100vh);
+    transform: translateY(-100vh);
+    -webkit-transition: all 1s cubic-bezier(.96, .37, .25, 1);
+    transition: all 1s cubic-bezier(.96, .37, .25, 1)
+}

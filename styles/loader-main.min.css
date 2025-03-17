@@ -1,0 +1,52 @@
+.pace {
+    pointer-events: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    z-index: 900;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%)
+}
+
+.pace .pace-progress {
+    -webkit-transform: none !important;
+    transform: none !important;
+    text-align: center
+}
+
+.pace.pace-inactive {
+    visibility: hidden;
+    -webkit-transition: all 1s;
+    transition: all 1s
+}
+
+.pace .pace-progress::after {
+    content: attr(data-progress-text);
+    display: block;
+    color: #eaeaea;
+    font-family: Ogg, 'Cormorant Upright', serif;
+    font-weight: 400
+}
+
+.pace-done .loader-bg {
+    -webkit-transform: translateY(-100vh);
+    transform: translateY(-100vh);
+    -webkit-transition: all 1s cubic-bezier(.96, .37, .25, 1);
+    transition: all 1s cubic-bezier(.96, .37, .25, 1)
+}
+
+@media screen and (max-width:999px) {
+    .pace .pace-progress::after {
+        font-size: 10vw
+    }
+}
+
+@media screen and (min-width:1000px) {
+    .pace .pace-progress::after {
+        font-size: 8vw
+    }
+}
