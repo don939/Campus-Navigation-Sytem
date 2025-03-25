@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Babcock University Campus Navigator</title>
+  
+  <!-- Load Leaflet CSS (pinned to 1.9.4) -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  
+  <!-- Load Leaflet Routing Machine CSS (pinned to 3.2.12) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"
+  />
+  
+  <!-- Load Leaflet Control Geocoder CSS (pinned to 2.0.7) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet-control-geocoder/dist/Control.Geocoder.css"
+  />
+
+  <!-- Leaflet JS (pinned to 1.9.4) -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <!-- Leaflet GeometryUtil JS (v0.10.1) -->
+  <script src="https://unpkg.com/leaflet-geometryutil@0.10.1/src/leaflet.geometryutil.js"></script>
+  
+  <!-- Leaflet Routing Machine JS (pinned to 3.2.12) -->
+  <script 
+    src="https://cdn.jsdelivr.net/npm/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"
+  ></script>
+  
+  <!-- Leaflet Control Geocoder JS (pinned to 2.0.7) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/leaflet-control-geocoder/dist/Control.Geocoder.js"
+    crossorigin=""
+  ></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+    .speed-control {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 250px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      z-index: 1000; /* Lower than search bar */
+    }
+    .speed-control input {
+      margin: 5px 0;
+      width: 100%;
+    }
+    .leaflet-top.leaflet-left {
+      top: 180px; /* Moved zoom controls down to avoid overlap with speed control */
+    }
+    .speed-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .transport-mode {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    .transport-mode label {
+      margin-right: 5px;
+    }
+    /* Clear Route button now uses top positioning (overridden in JS for different screens) */
+    .clear-route {
+      position: absolute;
+      top: 500px; /* Default; overridden in JS for mobile vs desktop */
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      display: none;
+    }
+    .clear-route:hover {
+      background: #f0f0f0;
+    }
+    /* Location selector is initially at left: 270px in CSS, but we override to 350px in JS for desktop */
+    .location-selector {
+      position: absolute;
+      top: 10px;
+      left: 270px;
+      z-index: 1000;
+      background: white;
+      padding: 8px;
+      border-radius: 4px;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      width: 200px;
+    }
+    .location-selector select {
+      width: 100%;
+      padding: 8px 5px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      background-color: white;
+      height: 36px;
+      appearance: menulist;
+      -webkit-appearance: menulist;
+      text-overflow: ellipsis;
+    }
+    .location-selector select:focus option {
+      padding: 10px;
+    }
+    .leaflet-routing-alt tr td:last-child {
+      white-space: normal !important;
+      word-wrap: break-word;
+      min-width: 160px;
+      background-color: white;
+    }
+    .leaflet-routing-alt tbody {
+      background-color: white;
+    }
+    /* Precision button styling */
+    .precision-btn {
+      position: absolute;
+      top: 165px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .precision-btn:hover {
+      background: #f0f0f0;
+    }
+    .precision-icon {
+      font-size: 22px;
+      line-height: 22px;
+      color: #333;
+    }
+    .guidance-message {
+      position: fixed;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 15px;
+      border-radius: 5px;
+      z-index: 2000;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      max-width: 300px;
+      text-align: center;
+    }
+    .arrow-pointer {
+      position: absolute;
+      animation: bounce 1s infinite;
+      z-index: 2000;
+    }
+    .leaflet-control-geocoder {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      left: auto;
+      width: 300px;
+      z-index: 1001; /* Higher than other controls */
+    }
+    .leaflet-routing-container {
+      margin-top: 60px !important; /* Shift down to avoid search bar */
+      border: 1px solid #ccc;      /* Optional: a subtle border */
+      border-radius: 4px;          /* Rounded corners if you like */
+      background-color: white;     /* Make sure background is solid */
+    }
+    @keyframes bounce {
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-20px);
+      }
+    }
+    .highlight-element {
+      box-shadow: 0 0 15px rgba(255, 255, 0, 0.5);
+      animation: highlight 1.5s ease-in-out infinite;
+    }
+    @keyframes highlight {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    /* Tablets (max-width: 1024px) */
+    @media (max-width: 1024px) {
+      .speed-control {
+        width: 200px;
+      }
+      .location-selector {
+        left: 240px;
+        width: 180px;
+      }
+    }
+
+    /* Medium screens (max-width: 768px) */
+    @media (max-width: 768px) {
+      .speed-control {
+        width: 90%;
+        max-width: 250px;
+        padding: 8px;
+        font-size: 12px;
+      }
+      .speed-control .speed-details {
+        display: none; /* Collapse details by default on mobile */
+      }
+      .location-selector {
+        width: 90%;
+        max-width: 300px;
+      }
+      .location-selector select {
+        width: 100%; /* Full-width dropdown */
+      }
+      .precision-btn {
+        width: 35px;
+        height: 35px;
+      }
+      #startTourBtn {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      .clear-route {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      .leaflet-control-geocoder {
+        top: 10px;
+        right: 10px;
+        left: auto;
+        width: 90%; /* Responsive width */
+        max-width: 300px;
+      }
+      .leaflet-control-geocoder input {
+        width: 100%; /* Full width for usability */
+      }
+    }
+
+    /* Mobile phones (max-width: 480px) */
+    @media (max-width: 480px) {
+      .speed-control {
+        padding: 8px;
+        font-size: 11px;
+        width: 90%;
+        max-width: 250px;
+      }
+      .location-selector {
+        padding: 5px;
+        font-size: 12px;
+        width: 90%;
+        max-width: 250px;
+      }
+      .location-selector select {
+        max-height: 200px;
+        overflow-y: auto; /* Scrollable dropdown */
+      }
+      .precision-btn {
+        width: 30px;
+        height: 30px;
+      }
+      #startTourBtn {
+        padding: 5px 8px;
+        font-size: 11px;
+      }
+      .clear-route {
+        padding: 5px 8px;
+        font-size: 11px;
+      }
+    }
+    .speed-toggle {
+      cursor: pointer;
+      padding: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <!-- Precision tracking button -->
+  <button
+    id="precisionBtn"
+    class="precision-btn"
+    title="Enable precise location tracking"
+    aria-label="Enable precise location tracking"
+  >
+    <span class="precision-icon">⨀</span>
+  </button>
+  
+  <!-- Start Tour button for first-time guidance or re-running the tour -->
+  <button id="startTourBtn" style="position: absolute; top: 450px; left: 10px; z-index: 1000; background: white; padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+    Start Tour
+  </button>
+
+  <div class="speed-control">
+    <h3 style="margin:0; padding:0 0 10px; text-align:center;">Speed Tracker</h3>
+    <div class="speed-toggle">Speed: <span id="currentSpeed">0.0</span> km/h ▼</div>
+    <div class="speed-details" style="display: none;">
+      <div class="speed-row"></div>
+      <div class="transport-mode">
+        <label><input type="radio" name="mode" value="auto" checked> Auto-detect</label>
+        <label><input type="radio" name="mode" value="manual"> Manual</label>
+        <input
+          type="range"
+          id="walkingSpeed"
+          min="1.8"
+          max="60"
+          step="0.5"
+          value="5.0"
+        />
+        <div class="speed-row">
+          <span>Set: <span id="speedValue">5.0</span> km/h</span>
+        </div>
+      </div>
+      <div class="transport-type" id="transportType">
+        Detected: <span id="modeValue">Walking</span>
+      </div>
+    </div>
+
+    <button
+      class="clear-route"
+      id="clearRouteBtn"
+      title="Clear current route"
+    >
+      Clear Route
+    </button>
+  </div>
+
+    <!-- Legend Button -->
+  <button id="legendBtn" style="position: absolute; top: 420px; left: 10px; z-index: 1000; background: white; padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+    Legend
+  </button>
+
+
+  <div
+    class="location-selector"
+    title="Select your destination from predefined locations"
+  >
+  <h3 style="margin:0; padding:0 0 10px; text-align:center;">Destination Selector</h3>
+    <select id="locationDropdown" title="Choose your destination building or landmark">
+      <option value="">Select Destination</option>
+      <option value="6.8913, 3.7169">600-seater Auditorium</option>
+      <option value="6.8930, 3.7210">Adeleke Hall</option>
+      <option value="6.8949, 3.7250">Ameyo Adadevoh Hall</option>
+      <option value="6.887860, 3.721522">Andrews Park</option>
+      <option value="6.8909, 3.7225">Babcock Amphitheatre</option>
+      <option value="6.8901, 3.7229">Babcock Bursary Office</option>
+      <option value="6.8909, 3.7240">Babcock Business School</option>
+      <option value="6.8927, 3.7236">Babcock Cafeteria</option>
+      <option value="6.8906, 3.7199">Babcock Guest House</option>
+      <option value="6.893080777446193, 3.722973730395864">Babcock University Food Service</option>
+      <option value="6.8901399991564, 3.7237183879000413">Babcock University Registry</option>
+      <option value="6.894698, 3.727648">Babcock University Stadium</option>
+      <option value="6.886814602227916, 3.7243664510378687">Babcock University VC Estate</option>
+      <option value="6.892130292959521, 3.7195497561959225">Babcock university staff school</option>
+      <option value="6.8946, 3.7230">Bethel Hall</option>
+      <option value="6.8901, 3.7190">BU Highschool</option>
+      <option value="6.8916, 3.7233">BUCODEL</option>
+      <option value="6.891108, 3.720417">BU Shopping Complex (Babrite)</option>
+      <option value="6.8921, 3.7238">BUSA House</option>
+      <option value="6.8918, 3.7186">BUTH</option>
+      <option value="6.892005557638108, 3.718586491445435">BUTH Cardiac Centre</option>
+      <option value="6.8928, 3.7278">Crystal Hall</option>
+      <option value="6.8920, 3.7272">Diamond Hall</option>
+      <option value="6.8937, 3.7250">Felicia Adebisi Dada Hall</option>
+      <option value="6.8945, 3.7225">Gideon Troopers Hall</option>
+      <option value="6.8949, 3.7261">Havilah Gold</option>
+      <option value="6.8921, 3.7224">Laz Otti Library</option>
+      <option value="6.8891, 3.7200">Main Gate</option>
+      <option value="6.8932, 3.7216">Neal Wilson Hall</option>
+      <option value="6.894183166259748, 3.7239484656571005">Nelson Mandela Hall</option>
+      <option value="6.890317, 3.723169">New Horizon Complex</option>
+      <option value="6.892749, 3.725631">Nyberg Hall</option>
+      <option value="6.892706, 3.726382">Ogden Hall</option>
+      <!-- <option value="6.892441258123093, 3.7298478566948208">Platinum Hall</option> -->
+      <option value="6.893210, 3.724462">Queen Esther Hall</option>
+      <option value="6.89421396271021, 3.723588462268981">Samuel Akande Hall</option>
+      <option value="6.888824238495532, 3.723006951615933">Science Complex (SAT)</option>
+      <!-- <option value="6.894516301414473, 3.722087965141321">Topaz Hall</option> -->
+      <option value="6.890843425457563, 3.7202635575456418">UBA Bank</option>
+      <option value="6.890975555872416, 3.7209349318526366">Wema Bank</option>
+      <option value="6.891705, 3.721522">Welch Hall</option>
+      <option value="6.893888, 3.726243">White Hall</option>
+      <option value="6.893952, 3.721672">Winslow Hall</option>
+      <option value="6.890819935602167, 3.7207574760886732">Zenith Bank</option>
+    </select>
+  </div>
+
+  <script>
+    (function () {
+      // Utility: Debounce function to limit rapid function calls.
+      function debounce(func, wait) {
+        let timeout;
+        return function (...args) {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+      }
+
+      // Helper function to compute distance between two lat/lng in meters
+      function computeDistanceBetween(lat1, lon1, lat2, lon2) {
+        const R = 6371000; // Earth radius in meters
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      // Configuration object for map and notifications
+      const config = {
+        mapCenter: [6.8946, 3.7230],
+        mapZoom: 13,
+        campusBoundaryCoords: [
+          [6.890934079686019, 3.7169372157491494],
+          [6.891053927496582, 3.7166126527252445],
+          [6.891730286575966, 3.7166180171430088],
+          [6.892246875150782, 3.7169452466070063],
+          [6.893331086898574, 3.717839697731829],
+          [6.893792915287899, 3.719075579150156],
+          [6.894420174026072, 3.7203045174814156],
+          [6.895185290702428, 3.721797295713074],
+          [6.895784975884758, 3.7237066631456557],
+          [6.895750511245227, 3.7260048472365095],
+          [6.895989230938264, 3.7267899151147255],
+          [6.89598167234911, 3.7278938969823505],
+          [6.896223547142277, 3.7288760601611344],
+          [6.894311221187568, 3.729089242866606],
+          [6.8929960201775975, 3.729233902651493],
+          [6.892187245300534, 3.728069011421748],
+          [6.890766217019632, 3.72695741588607],
+          [6.890350489827279, 3.7267670740936216],
+          [6.889171334433234, 3.726622414400622],
+          [6.888891662531392, 3.7265538913881486],
+          [6.8877515415344375, 3.727518376008627],
+          [6.887466980186469, 3.727743031834131],
+          [6.885782681198281, 3.726185934566727],
+          [6.885490427807042, 3.7244274217497044],
+          [6.884705957274756, 3.7245901033808835],
+          [6.885044356481314, 3.723172447673769],
+          [6.885411875456799, 3.7223838305886128],
+          [6.887318482677821, 3.7206028438908154],
+          [6.888617953657877, 3.7194119429491677],
+          [6.890034585933448, 3.718092296179114],
+          [6.890289693832382, 3.7176721252337233],
+          [6.890934079686019, 3.7169372157491494]
+        ],
+        campusBoundaryStyle: {
+          color: "#8A2BE2",
+          weight: 3,
+          opacity: 0.7,
+          fillColor: "#8A2BE2",
+          fillOpacity: 0.1
+        },
+        notifications: {
+          duration: 5000
+        },
+        markerIconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        markerIconRedUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png"
+      };
+
+      const styleEl = document.createElement('style');
+      styleEl.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      `;
+      document.head.appendChild(styleEl);
+
+      // Create notification container if needed
+      let notificationContainer = document.getElementById("notificationContainer");
+      if (!notificationContainer) {
+        notificationContainer = document.createElement("div");
+        notificationContainer.id = "notificationContainer";
+        notificationContainer.style.position = "fixed";
+        notificationContainer.style.top = "10px";
+        notificationContainer.style.left = "50%";
+        notificationContainer.style.transform = "translateX(-50%)";
+        notificationContainer.style.zIndex = "3000";
+        document.body.appendChild(notificationContainer);
+      }
+
+      let voiceEnabled = true;           // Toggle voice navigation on/off
+      let isSpeaking = false;            // Tracks if a voice prompt is currently playing
+      let pendingPrompts = [];           // Queue for pending voice prompts
+      let routeInstructions = [];        // Stores route instructions with metadata
+      let currentInstructionIndex = 0;   // Tracks the current instruction in the sequence
+
+      // Enhanced notification function to display messages with duration parameter
+      function showNotification(message, type = "info", duration = 5000) {
+        const notif = document.createElement("div");
+        notif.textContent = message;
+        
+        // Make mobile notifications more visible
+        if (window.innerWidth <= 768) {
+          notif.style.width = "80%";
+          notif.style.maxWidth = "300px";
+          notif.style.fontSize = "16px";
+          notif.style.padding = "15px";
+        }
+        
+        if (type === "error") {
+          notif.style.background = "#f8d7da";
+          notif.style.color = "#721c24";
+          notif.style.border = "1px solid #f5c6cb";
+        } else {
+          notif.style.background = "rgba(0,0,0,0.8)";
+          notif.style.color = "white";
+        }
+        
+        notif.style.padding = "10px 20px";
+        notif.style.margin = "5px";
+        notif.style.borderRadius = "5px";
+        notif.style.fontFamily = "Arial, sans-serif";
+        notif.style.fontSize = "14px";
+        notif.style.boxShadow = "0 0 5px rgba(0,0,0,0.3)";
+
+        // Dismiss button for notifications
+        const closeBtn = document.createElement("span");
+        closeBtn.textContent = "✖";
+        closeBtn.style.marginLeft = "10px";
+        closeBtn.style.cursor = "pointer";
+        closeBtn.addEventListener("click", () => {
+          notif.remove();
+        });
+        notif.appendChild(closeBtn);
+
+        notificationContainer.appendChild(notif);
+
+        setTimeout(() => {
+          notif.style.transition = "opacity 0.5s";
+          notif.style.opacity = "0";
+          setTimeout(() => {
+            notif.remove();
+          }, 500);
+        }, duration);
+      }
+
+      // Global variables for tracking, routing, and state management
+      let isTracking = false,
+        watchId = null,
+        currentRoutingControl = null,
+        currentDestinationMarker = null,
+        marker,
+        circle,
+        isFirstPositionUpdate = true,
+        campusBoundary = null,
+        isWithinCampus = null,
+        campusAlertShown = false,
+        currentSpeedKmh = 0,
+        recentSpeeds = [],
+        isAutoMode = true,
+        manualSpeedKmh = 5.0,
+        transportProfile = "foot",
+        transportMode = "Walking",
+        defaultSpeedMS = 1.4,
+        speedThresholds = {
+          walking: 5.5,
+          running: 13,
+          cycling: 25,
+          driving: 999
+        },
+        lastPosition = null,
+        lastTimestamp = null;
+
+      let centerOnNextUpdate = false;
+
+      // For consecutive high-speed logic
+      let highSpeedReadingsCount = 0;
+      const REQUIRED_CONSECUTIVE_READINGS = 3; // 3 consecutive "fast" readings confirm driving mode
+      const HIGH_SPEED_THRESHOLD = 25;         // Speed threshold (km/h)
+
+      // Utility functions for speed conversion and averaging
+      function kmhToMs(kmh) {
+        return kmh / 3.6;
+      }
+      function updateMovingAverage(newSpeed) {
+        // Discard insane spikes if necessary
+        if (newSpeed > 100 && recentSpeeds.every(s => s < 5)) {
+          return recentSpeeds.length ? average(recentSpeeds) : 0;
+        }
+
+        recentSpeeds.push(newSpeed);
+        if (recentSpeeds.length > 5) recentSpeeds.shift();
+
+        let sum = recentSpeeds.reduce((acc, s) => acc + (s > 0 ? s : 0), 0);
+        let count = recentSpeeds.filter(s => s > 0).length;
+        return count > 0 ? sum / count : 0;
+      }
+      function average(arr) {
+        return arr.reduce((a, b) => a + b, 0) / arr.length;
+      }
+      function determineTransportMode(speed) {
+        if (speed <= speedThresholds.walking) return { mode: "Walking", profile: "foot" };
+        else if (speed <= speedThresholds.running) return { mode: "Running", profile: "foot" };
+        else if (speed <= speedThresholds.cycling) return { mode: "Cycling", profile: "bike" };
+        else return { mode: "Driving", profile: "car" };
+      }
+      function calculateSpeed(position) {
+        if (!lastPosition || !lastTimestamp) {
+          lastPosition = position;
+          lastTimestamp = position.timestamp;
+          return 0;
+        }
+        const lat1 = lastPosition.coords.latitude,
+          lon1 = lastPosition.coords.longitude,
+          lat2 = position.coords.latitude,
+          lon2 = position.coords.longitude;
+        const R = 6371000;
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLon = ((lon2 - lon1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
+        const timeDiff = (position.timestamp - lastTimestamp) / 1000;
+        let speed = timeDiff > 0 ? (distance / timeDiff) * 3.6 : 0;
+
+        // Ignore outlier speed readings if necessary
+        if (lastPosition) {
+          if (speed > 20 && distance < 10) {
+            console.log("Discarding outlier speed reading:", speed);
+            speed = 0;
+          }
+        }
+
+        lastPosition = position;
+        lastTimestamp = position.timestamp;
+        return speed;
+      }
+
+      // Campus boundary functions: initialization, check, and handling boundary changes
+      function initCampusBoundary() {
+        try {
+          campusBoundary = L.polygon(
+            config.campusBoundaryCoords,
+            config.campusBoundaryStyle
+          ).addTo(map);
+          L.marker(config.mapCenter, {
+            icon: L.divIcon({
+              className: "campus-label",
+              html: `<div style="font-weight: bold; font-size: 14px; background: rgba(255,255,255,0.7); padding: 5px; border-radius: 3px;">Babcock University</div>`,
+              iconSize: [120, 40],
+              iconAnchor: [60, 20]
+            })
+          }).addTo(map);
+          map.fitBounds(campusBoundary.getBounds());
+        } catch (error) {
+          console.error("Error initializing campus boundary:", error);
+          showNotification(
+            "There was an error setting up the campus boundary. Please refresh the page.",
+            "error"
+          );
+        }
+      }
+
+      // CHANGED: We now call our custom `isPointInsidePolygon` instead of a non-existent geometryutil function.
+      function checkIfInCampus(latlng) {
+        if (!campusBoundary) return true; // Default to true if boundary isn’t set
+        console.log("Checking position:", latlng);
+        const polygonLatLngs = campusBoundary.getLatLngs()[0];
+        // Removed: return L.GeometryUtil.isPointInPolygon(latlng, polygonLatLngs);
+        return isPointInsidePolygon(latlng, polygonLatLngs); // Now using the custom function below
+      }
+
+      // CHANGED: Make sure our custom point-in-polygon function is active/used
+      function isPointInsidePolygon(point, polygonLatLngs) {
+        let inside = false;
+        for (let i = 0, j = polygonLatLngs.length - 1; i < polygonLatLngs.length; j = i++) {
+          const xi = polygonLatLngs[i].lat, yi = polygonLatLngs[i].lng;
+          const xj = polygonLatLngs[j].lat, yj = polygonLatLngs[j].lng;
+
+          // Compare point.lng (y) with polygon edges
+          const intersect = ((yi > point.lng) !== (yj > point.lng))
+            && (point.lat < (xj - xi) * (point.lng - yi) / (yj - yi) + xi);
+          if (intersect) inside = !inside;
+        }
+        return inside;
+      }
+
+      function handleCampusBoundaryChange(isInside) {
+        console.log("Boundary check - isInside:", isInside, "wasWithinCampus:", isWithinCampus);
+
+        // If we haven't determined inside/outside yet (first time):
+        if (isWithinCampus === null) {
+          if (isInside) {
+            showNotification("You are within Babcock University's Main Campus!");
+          } else {
+            showNotification("You are currently outside Babcock University campus.", "error");
+          }
+          isWithinCampus = isInside;
+          return;
+        }
+        // For subsequent checks, only notify if their inside/outside status changes
+        if (isInside !== isWithinCampus) {
+          if (isInside) {
+            showNotification("Welcome to Babcock University campus!");
+          } else {
+            showNotification("You're now leaving Babcock University campus.", "error");
+          }
+          isWithinCampus = isInside;
+        }
+      }
+
+      // Custom ES6 class extending L.Routing.Formatter to format distances and times.
+      class CustomFormatter extends L.Routing.Formatter {
+        constructor(options) {
+          super(options);
+        }
+
+        formatDistance(d) {
+          if (d > 1000) return (d / 1000).toFixed(1) + " km";
+          else return d.toFixed(d < 100 ? 2 : 1) + " m";
+        }
+
+        formatTime(t) {
+          let currentSpeedMs = isAutoMode ? kmhToMs(currentSpeedKmh) : kmhToMs(manualSpeedKmh);
+          if (currentSpeedMs <= 0) currentSpeedMs = kmhToMs(manualSpeedKmh);
+
+          let realisticFactor =
+              transportProfile === "foot"
+                  ? transportMode === "Running"
+                      ? 1.2
+                      : 1.5
+                  : transportProfile === "bike"
+                  ? 1.3
+                  : 1.2;
+
+          let adjustedTime = t * (defaultSpeedMS / currentSpeedMs) * realisticFactor;
+
+          if (adjustedTime < 60) {
+              return Math.round(adjustedTime) + " s";
+          } else if (adjustedTime < 3600) {
+              let mins = Math.floor(adjustedTime / 60);
+              let secs = Math.round(adjustedTime % 60);
+              return mins + " min " + (secs > 0 ? secs + " s" : "");
+          } else {
+              let hours = Math.floor(adjustedTime / 3600);
+              adjustedTime %= 3600;
+              let mins = Math.floor(adjustedTime / 60);
+              return hours + " h " + (mins > 0 ? mins + " min" : "");
+          }
+        }
+
+      }
+
+      function observeRoutingContainer(container) {
+        const observer = new MutationObserver((mutationsList, obs) => {
+          cleanupDuplicateTimeDisplays();
+          obs.disconnect();
+        });
+        observer.observe(container, { childList: true, subtree: true });
+      }
+
+      function cleanupDuplicateTimeDisplays() {
+        if (!currentRoutingControl || !currentRoutingControl._container) return;
+        const container = currentRoutingControl._container;
+        
+        // Clean up duplicate instruction items, but not the summary
+        const routeItems = container.querySelectorAll(".leaflet-routing-alt tbody tr");
+        routeItems.forEach((item) => {
+          const distanceElements = item.querySelectorAll(".leaflet-routing-icon ~ td");
+          if (distanceElements.length > 1) {
+            for (let i = 1; i < distanceElements.length; i++) {
+              distanceElements[i].style.display = "none";
+            }
+          }
+        });
+      }
+
+      // Initialize the Leaflet map
+      const map = L.map("map").setView(config.mapCenter, config.mapZoom);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(map);
+
+      let debouncedUpdateRoute, debouncedAdjustMapForMobile;
+
+      function speak(text) {
+        if (!voiceEnabled || !('speechSynthesis' in window)) {
+            return; // Exit if voice is disabled or unsupported
+        }
+        if (isSpeaking) {
+            pendingPrompts.push(text); // Queue prompt if currently speaking
+            return;
+        }
+        isSpeaking = true;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.onend = () => {
+            isSpeaking = false; // Reset speaking state when done
+            if (pendingPrompts.length > 0) {
+                speak(pendingPrompts.shift()); // Speak next queued prompt
+            }
+        };
+        window.speechSynthesis.speak(utterance);
+      }
+
+      // Function to create and update route between current location and destination.
+      function createRoute(destination) {
+        try {
+          const start = marker ? marker.getLatLng() : L.latLng(config.mapCenter);
+          if (currentRoutingControl) {
+            currentRoutingControl.setWaypoints([start, destination]);
+          } else {
+            currentRoutingControl = L.Routing.control({
+              waypoints: [start, destination],
+              routeWhileDragging: true,
+              router: L.Routing.osrmv1({
+                profile: transportProfile,
+                serviceUrl: "https://router.project-osrm.org/route/v1"
+              }),
+              formatter: new CustomFormatter(),
+              showAlternatives: false,
+              lineOptions: {
+                styles: [{ color: "#0000ff", opacity: 0.7, weight: 5 }]
+              }
+            }).addTo(map);
+
+            currentRoutingControl.on("routesfound", function (e) {
+              if (currentRoutingControl && currentRoutingControl._container) {
+                const container = currentRoutingControl._container;
+    
+                // 1. Remove or hide the original Leaflet Routing Machine summary
+                const defaultSummaries = container.querySelectorAll(".leaflet-routing-alt h2");
+                defaultSummaries.forEach((el) => {
+                  // Option A: Hide them
+                  // el.style.display = "none";
+
+                  // Option B: Remove them entirely
+                  el.remove();
+                });
+
+                // Inject estimated travel time next to each navigation step
+                const steps = container.querySelectorAll(".leaflet-routing-alt tbody tr");
+                steps.forEach((step, index) => {
+                    let estimatedTime = formatTime(e.routes[0].instructions[index].time);
+                    let timeDisplay = document.createElement("span");
+                    timeDisplay.style.fontWeight = "bold";
+                    timeDisplay.style.color = "#007BFF";
+                    timeDisplay.style.marginLeft = "10px";
+                    timeDisplay.textContent = `(${estimatedTime})`;
+
+                    let firstCell = step.querySelector("td");
+                    if (firstCell && !firstCell.querySelector(".time-estimate")) {
+                        timeDisplay.classList.add("time-estimate");
+                        firstCell.appendChild(timeDisplay);
+                    }
+                });
+
+                observeRoutingContainer(container);
+
+                // Add voice navigation initialization
+                routeInstructions = e.routes[0].instructions.map(inst => ({
+                    text: inst.text,
+                    latLng: inst.latLng,
+                    prompted: false
+                }));
+                currentInstructionIndex = 0;
+                if (routeInstructions.length > 0 && voiceEnabled) {
+                    speak(routeInstructions[0].text);
+                    routeInstructions[0].prompted = true;
+                }
+              }
+            });
+          }
+          document.getElementById("clearRouteBtn").style.display = "block";
+
+          // For mobile, add toggle for route instructions.
+          if (window.innerWidth <= 480 && currentRoutingControl && currentRoutingControl._container) {
+            const container = currentRoutingControl._container;
+            const routingContainer = container.querySelector(".leaflet-routing-container");
+            if (routingContainer) {
+              routingContainer.classList.add("leaflet-routing-container-hide");
+              const toggleBtn = document.createElement("div");
+              toggleBtn.className = "toggle-route-btn";
+              toggleBtn.innerHTML = "Show Route";
+              toggleBtn.style.cssText =
+                "position:absolute;bottom:20px;left:10px;z-index:1000;background:white;padding:8px;border-radius:4px;box-shadow:0 0 5px rgba(0,0,0,0.2);cursor:pointer;font-size:12px;";
+              // Accessibility attributes
+              toggleBtn.setAttribute("role", "button");
+              toggleBtn.setAttribute("tabindex", "0");
+
+              toggleBtn.addEventListener("click", function () {
+                if (routingContainer.classList.contains("leaflet-routing-container-hide")) {
+                  routingContainer.classList.remove("leaflet-routing-container-hide");
+                  this.innerHTML = "Hide Route";
+                } else {
+                  routingContainer.classList.add("leaflet-routing-container-hide");
+                  this.innerHTML = "Show Route";
+                }
+              });
+              toggleBtn.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") {
+                  this.click();
+                }
+              });
+              document.body.appendChild(toggleBtn);
+            }
+          }
+        } catch (error) {
+          console.error("Error creating route:", error);
+          showNotification(
+            "There was an error creating the route. Please try again.",
+            "error"
+          );
+        }
+      }
+
+      // Destination handling: update route when destination changes.
+      document.getElementById("locationDropdown").addEventListener("change", function () {
+        const selectedValue = this.value;
+        if (selectedValue) {
+          const coords = selectedValue.split(",");
+          if (coords.length === 2) {
+            const lat = parseFloat(coords[0]),
+              lng = parseFloat(coords[1]);
+            if (currentDestinationMarker) {
+              map.removeLayer(currentDestinationMarker);
+            }
+            currentDestinationMarker = L.marker([lat, lng]).addTo(map);
+            createRoute(L.latLng(lat, lng));
+          }
+        }
+      });
+
+      // Geocoder control
+      var geocoder = L.Control.geocoder({
+        defaultMarkGeocode: false
+      })
+        .on("markgeocode", function (e) {
+          const searchLocation = e.geocode.center;
+          if (currentDestinationMarker) {
+            map.removeLayer(currentDestinationMarker);
+          }
+          currentDestinationMarker = L.marker(searchLocation).addTo(map);
+          createRoute(searchLocation);
+        })
+        .addTo(map);
+
+      function updateRoute() {
+        if (currentDestinationMarker) {
+          const destination = currentDestinationMarker.getLatLng();
+          createRoute(destination);
+        }
+      }
+      debouncedUpdateRoute = debounce(updateRoute, 300);
+
+      // Event listeners for speed control
+      const walkingSpeedSlider = document.getElementById("walkingSpeed");
+      const speedValueDisplay = document.getElementById("speedValue");
+      const currentSpeedDisplay = document.getElementById("currentSpeed");
+      const modeValueDisplay = document.getElementById("modeValue");
+      const modeRadios = document.querySelectorAll('input[name="mode"]');
+
+      modeRadios.forEach((radio) => {
+        radio.addEventListener("change", function () {
+          isAutoMode = (this.value === "auto");
+          if (!isAutoMode) {
+            currentSpeedDisplay.textContent = manualSpeedKmh.toFixed(1);
+            const newTransport = determineTransportMode(manualSpeedKmh);
+            transportProfile = newTransport.profile;
+            transportMode = newTransport.mode;
+            modeValueDisplay.textContent = transportMode;
+          }
+          debouncedUpdateRoute();
+        });
+      });
+
+      walkingSpeedSlider.addEventListener("input", function () {
+        manualSpeedKmh = parseFloat(this.value);
+        speedValueDisplay.textContent = manualSpeedKmh.toFixed(1);
+
+        if (!isAutoMode) {
+            currentSpeedDisplay.textContent = manualSpeedKmh.toFixed(1);
+            const newTransport = determineTransportMode(manualSpeedKmh);
+            transportProfile = newTransport.profile;
+            transportMode = newTransport.mode;
+            modeValueDisplay.textContent = transportMode;
+
+            debouncedUpdateRoute();
+
+            // Refresh time estimates in the navigation steps
+            if (currentRoutingControl && currentRoutingControl._container) {
+                const container = currentRoutingControl._container;
+                container.querySelectorAll(".time-estimate").forEach(el => el.remove());
+                currentRoutingControl.fire("routesfound", { routes: currentRoutingControl.getPlan().getWaypoints() });
+            }
+        }
+      });
+
+      // Geolocation success callback
+      const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+      function success(pos) {
+        console.log("Geolocation update:", pos);
+        const lat = pos.coords.latitude,
+          lng = pos.coords.longitude,
+          accuracy = pos.coords.accuracy;
+
+        let speedReading;
+        if (pos.coords.speed !== null && pos.coords.speed !== undefined) {
+          speedReading = pos.coords.speed * 3.6;
+        } else {
+          speedReading = calculateSpeed(pos);
+        }
+
+        if (speedReading >= 0) {
+          currentSpeedKmh = updateMovingAverage(speedReading);
+          if (isAutoMode) {
+            currentSpeedDisplay.textContent = currentSpeedKmh.toFixed(1);
+
+            if (currentSpeedKmh > HIGH_SPEED_THRESHOLD) {
+              highSpeedReadingsCount++;
+            } else {
+              highSpeedReadingsCount = 0;
+            }
+
+            if (highSpeedReadingsCount >= REQUIRED_CONSECUTIVE_READINGS) {
+              const newTransport = determineTransportMode(currentSpeedKmh);
+              if (transportProfile !== newTransport.profile || transportMode !== newTransport.mode) {
+                transportProfile = newTransport.profile;
+                transportMode = newTransport.mode;
+                modeValueDisplay.textContent = transportMode;
+                debouncedUpdateRoute();
+              }
+            } else {
+              const newTransport = determineTransportMode(currentSpeedKmh);
+              if (transportProfile !== newTransport.profile || transportMode !== newTransport.mode) {
+                transportProfile = newTransport.profile;
+                transportMode = newTransport.mode;
+                modeValueDisplay.textContent = transportMode;
+                debouncedUpdateRoute();
+              }
+            }
+          }
+        }
+
+        if (marker) {
+          // Update existing marker
+          marker.setLatLng([lat, lng]);
+          marker.getPopup().setContent(
+            "You are within " + Math.round(accuracy) + " meters from this point"
+          );
+          circle.setLatLng([lat, lng]);
+          circle.setRadius(accuracy);
+          const userPosition = marker.getLatLng();
+          const inCampus = checkIfInCampus(userPosition);
+          console.log("In campus:", inCampus);
+          handleCampusBoundaryChange(inCampus);
+
+          if (inCampus) {
+            marker.setIcon(
+              L.icon({
+                iconUrl: config.markerIconUrl,
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+              })
+            );
+          } else {
+            marker.setIcon(
+              L.icon({
+                iconUrl: config.markerIconRedUrl,
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+              })
+            );
+          }
+        } else {
+          // Create the marker only once
+          marker = L.marker([lat, lng])
+            .addTo(map)
+            .bindPopup("You are within " + Math.round(accuracy) + " meters from this point")
+            .openPopup();
+          circle = L.circle([lat, lng], { radius: accuracy }).addTo(map);
+          const userPosition = L.latLng(lat, lng);
+          const inCampus = checkIfInCampus(userPosition);
+          isWithinCampus = inCampus;
+          map.fitBounds(circle.getBounds());
+        }
+
+        if (centerOnNextUpdate) {
+          map.panTo(marker.getLatLng());
+          centerOnNextUpdate = false;
+        }
+
+        if (isFirstPositionUpdate) {
+          map.fitBounds(circle.getBounds());
+          isFirstPositionUpdate = false;
+        }
+
+        // Voice navigation with safety check
+        if (currentRoutingControl && routeInstructions.length > 0 && currentInstructionIndex < routeInstructions.length) {
+          const userLatLng = marker.getLatLng();
+          const nextInstruction = routeInstructions[currentInstructionIndex];
+          if (nextInstruction && nextInstruction.latLng) {
+            const distance = computeDistanceBetween(
+              userLatLng.lat,
+              userLatLng.lng,
+              nextInstruction.latLng.lat,
+              nextInstruction.latLng.lng
+            );
+            if (distance < 50 && !nextInstruction.prompted) {
+              speak(nextInstruction.text);
+              nextInstruction.prompted = true;
+            }
+            if (distance < 10) {
+              currentInstructionIndex++;
+              if (currentInstructionIndex < routeInstructions.length) {
+                speak(routeInstructions[currentInstructionIndex].text);
+                routeInstructions[currentInstructionIndex].prompted = true;
+              } else {
+                speak("You have arrived at your destination.");
+              }
+            }
+          }
+        }
+      }
+
+      function error(err) {
+        if (err.code === 1) {
+          alert("Location access denied! Please enable location services and allow permissions in your device's settings.");
+        } else if (err.code === 2) {
+          alert("Location unavailable! Check your GPS or internet connection.");
+        } else {
+          alert("An error occurred: " + err.message);
+        }
+      }
+
+      // Precision tracking toggle
+      const precisionBtn = document.getElementById("precisionBtn");
+      precisionBtn.addEventListener("click", function() {
+        if (!isTracking) {
+            if (!navigator.geolocation) {
+                showNotification("Geolocation is not supported by your browser", "error", 10000);
+                return;
+            }
+
+            precisionBtn.innerHTML = '<span class="precision-icon" style="animation: spin 2s linear infinite;">⟳</span>';
+            precisionBtn.classList.add("requesting");
+
+            showNotification("Please hold on while we fetch your current location...", "info", 10000);
+
+            // const permissionTimeout = setTimeout(() => {
+            //     if (precisionBtn.classList.contains("requesting")) {
+            //         precisionBtn.innerHTML = '<span class="precision-icon">⨀</span>';
+            //         precisionBtn.classList.remove("requesting");
+            //         showNotification("Location request timed out. Please try again or check your settings.", "error", 10000);
+            //     }
+            // }, 15000);
+
+            const permissionTimeout = setTimeout(() => {
+              if (precisionBtn.classList.contains("requesting")) {
+                precisionBtn.innerHTML = '<span class="precision-icon">⨀</span>';
+                precisionBtn.classList.remove("requesting");
+                showNotification("Location request timed out. Please try again or check your settings.", "error", 10000);
+              }
+            }, 15000);
+
+            navigator.permissions.query({ name: "geolocation" }).then(function(permissionStatus) {
+              if (permissionStatus.state === "granted") {
+                // Permission already granted; start tracking without prompting again.
+                clearTimeout(permissionTimeout);
+                isTracking = true;
+                precisionBtn.innerHTML = '<span class="precision-icon" style="color: #4CAF50;">⨀</span>';
+                precisionBtn.classList.remove("requesting");
+                showNotification("Precision tracking enabled!", null, 5000);
+                centerOnNextUpdate = true;
+                watchId = navigator.geolocation.watchPosition(success, error, { enableHighAccuracy: true });
+              } else {
+                // Permission not granted yet; prompt as usual.
+                navigator.geolocation.getCurrentPosition(
+                  function(position) {
+                    clearTimeout(permissionTimeout);
+                    isTracking = true;
+                    precisionBtn.innerHTML = '<span class="precision-icon" style="color: #4CAF50;">⨀</span>';
+                    precisionBtn.classList.remove("requesting");
+                    showNotification("Precision tracking enabled!", null, 5000);
+                    centerOnNextUpdate = true;
+                    watchId = navigator.geolocation.watchPosition(success, error, { enableHighAccuracy: true });
+                  },
+                  function(err) {
+                    clearTimeout(permissionTimeout);
+                    precisionBtn.innerHTML = '<span class="precision-icon">⨀</span>';
+                    precisionBtn.classList.remove("requesting");
+                    if (err.code === 1) {
+                      showNotification("Location access denied. Please enable location in your device settings and browser permissions.", "error", 10000);
+                    } else if (err.code === 2) {
+                      showNotification("Position unavailable. Please check your GPS is enabled.", "error", 10000);
+                    } else {
+                      showNotification("Location error: " + err.message, "error", 10000);
+                    }
+                  },
+                  { enableHighAccuracy: true }
+                );
+              }
+            });
+        }
+      });
+
+      // Responsive adjustments
+      function adjustMapForMobile() {
+        if (window.innerWidth <= 768) {
+          const geocoderContainer = document.querySelector(".leaflet-control-geocoder");
+          if (geocoderContainer) {
+            geocoderContainer.style.width = "180px";
+            const searchInput = geocoderContainer.querySelector("input");
+            if (searchInput) {
+              searchInput.style.padding = "5px 8px";
+              searchInput.style.height = "30px";
+              searchInput.style.fontSize = "13px";
+            }
+          }
+        } else {
+          const geocoderContainer = document.querySelector(".leaflet-control-geocoder");
+          if (geocoderContainer) {
+            geocoderContainer.style.width = "";
+            const searchInput = geocoderContainer.querySelector("input");
+            if (searchInput) {
+              searchInput.style.padding = "";
+              searchInput.style.height = "";
+              searchInput.style.fontSize = "";
+            }
+          }
+        }
+      }
+      debouncedAdjustMapForMobile = debounce(adjustMapForMobile, 300);
+
+      window.addEventListener("resize", debouncedAdjustMapForMobile);
+      window.addEventListener("orientationchange", function () {
+        setTimeout(debouncedAdjustMapForMobile, 500);
+      });
+
+      document.addEventListener("DOMContentLoaded", function () {
+        initCampusBoundary();
+        debouncedAdjustMapForMobile();
+        setControlPositions();
+
+        // Add speed toggle listener
+        const speedToggle = document.querySelector('.speed-toggle');
+        if (speedToggle) {
+          speedToggle.addEventListener('click', function () {
+            const details = document.querySelector('.speed-details');
+            const isVisible = details.style.display === 'block';
+            details.style.display = isVisible ? 'none' : 'block';
+            const currentSpeedEl = document.getElementById('currentSpeed');
+            this.textContent = `Speed: ${currentSpeedEl ? currentSpeedEl.textContent : '0.0'} km/h ${isVisible ? '▼' : '▲'}`;
+            setControlPositions();
+          });
+        }
+
+        document.getElementById("legendBtn").addEventListener("click", showLegend);
+      });
+
+      // Clear route button
+      const clearRouteBtn = document.getElementById("clearRouteBtn");
+      clearRouteBtn.addEventListener("click", function () {
+        if (currentRoutingControl) {
+          currentRoutingControl.setWaypoints([]);
+        }
+        if (currentDestinationMarker) {
+          map.removeLayer(currentDestinationMarker);
+          currentDestinationMarker = null;
+        }
+        this.style.display = "none";
+        routeInstructions = [];
+        currentInstructionIndex = 0;
+      });
+
+      // Optional tests
+      function runTests() {
+        console.log("Running unit tests...");
+        const fakePos1 = { coords: { latitude: 0, longitude: 0, speed: null }, timestamp: 1000 };
+        const fakePos2 = {
+          coords: { latitude: 0.001, longitude: 0.001, speed: null },
+          timestamp: 2000
+        };
+        lastPosition = null;
+        lastTimestamp = null;
+        const speed1 = calculateSpeed(fakePos1);
+        const speed2 = calculateSpeed(fakePos2);
+        console.assert(typeof speed2 === "number", "calculateSpeed should return a number");
+        console.log("calculateSpeed test passed.");
+
+        const pointInside = L.latLng(config.mapCenter);
+        const inside = checkIfInCampus(pointInside);
+        console.assert(
+          inside === true,
+          "checkIfInCampus should return true for a point inside campus"
+        );
+
+        const pointOutside = L.latLng(0, 0);
+        const outside = checkIfInCampus(pointOutside);
+        console.assert(
+          outside === false,
+          "checkIfInCampus should return false for a point outside campus"
+        );
+        console.log("checkIfInCampus tests passed.");
+      }
+      if (window.location.search.includes("test=true")) {
+        runTests();
+      }
+
+      // Custom Tour Guidance System
+      function positionTourMessage(tourMessage, rect) {
+        const offset = 10;
+        const tooltipWidth = tourMessage.offsetWidth || 300;
+        const tooltipHeight = tourMessage.offsetHeight || 100;
+
+        let top = rect.bottom + offset;
+        let left = rect.left;
+
+        if (left + tooltipWidth > window.innerWidth - offset) {
+          left = window.innerWidth - tooltipWidth - offset;
+        }
+        if (top + tooltipHeight > window.innerHeight - offset) {
+          top = rect.top - tooltipHeight - offset;
+        }
+        if (left < offset) left = offset;
+        if (top < offset) top = offset;
+
+        tourMessage.style.top = `${top}px`;
+        tourMessage.style.left = `${left}px`;
+        tourMessage.style.transform = "none";
+      }
+
+      function startTour() {
+        const tourSteps = [
+          {
+            message: "Welcome to Babcock University Campus Navigator! Let's walk through the key features.",
+            target: null
+          },
+          {
+            message: "Here is the Speed Tracker, where you can view or adjust your travel speed.",
+            target: ".speed-control" // or "#walkingSpeed" if you prefer focusing the slider
+          },
+          {
+            message: "Use this button to enable precise location tracking in real-time.",
+            target: "#precisionBtn"
+          },
+          {
+            message: "This Destination Selector helps you pick a campus location for routing.",
+            target: ".location-selector"
+          },
+          {
+            message: "You can also use the Search bar (top-right) to quickly find places on campus.",
+            target: ".leaflet-control-geocoder"
+          },
+          {
+            message: "That's it! Enjoy exploring the campus with your new navigator!",
+            target: null
+          }
+        ];
+        
+        let currentStep = 0;
+
+        // Create the overlay and message elements
+        let tourOverlay = document.createElement("div");
+        tourOverlay.id = "tourOverlay";
+        tourOverlay.style.position = "fixed";
+        tourOverlay.style.top = "0";
+        tourOverlay.style.left = "0";
+        tourOverlay.style.width = "100%";
+        tourOverlay.style.height = "100%";
+        tourOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+        tourOverlay.style.zIndex = "3000";
+        tourOverlay.style.display = "flex";
+        tourOverlay.style.alignItems = "center";
+        tourOverlay.style.justifyContent = "center";
+
+        let tourMessage = document.createElement("div");
+        tourMessage.id = "tourMessage";
+        tourMessage.className = "guidance-message";
+        tourMessage.style.position = "absolute";
+        tourMessage.style.maxWidth = "300px";
+
+        let prevBtn = document.createElement("button");
+        prevBtn.textContent = "Previous";
+        prevBtn.style.margin = "10px";
+
+        let nextBtn = document.createElement("button");
+        nextBtn.textContent = "Next";
+        nextBtn.style.margin = "10px";
+
+        let closeBtn = document.createElement("button");
+        closeBtn.textContent = "Close";
+        closeBtn.style.margin = "10px";
+
+        let btnContainer = document.createElement("div");
+        btnContainer.style.textAlign = "center";
+        btnContainer.appendChild(prevBtn);
+        btnContainer.appendChild(nextBtn);
+        btnContainer.appendChild(closeBtn);
+
+        let tourText = document.createElement("div");
+        tourText.className = "tour-text";
+        tourText.style.marginBottom = "10px";
+
+        tourMessage.appendChild(tourText);
+        tourMessage.appendChild(btnContainer);
+        tourOverlay.appendChild(tourMessage);
+        document.body.appendChild(tourOverlay);
+
+        function positionTourMessage(tourMessage, rect) {
+          const offset = 10;
+          const tooltipWidth = tourMessage.offsetWidth || 300;
+          const tooltipHeight = tourMessage.offsetHeight || 100;
+
+          let top = rect.bottom + offset;
+          let left = rect.left;
+
+          if (left + tooltipWidth > window.innerWidth - offset) {
+            left = window.innerWidth - tooltipWidth - offset;
+          }
+          if (top + tooltipHeight > window.innerHeight - offset) {
+            top = rect.top - tooltipHeight - offset;
+          }
+          if (left < offset) left = offset;
+          if (top < offset) top = offset;
+
+          tourMessage.style.top = `${top}px`;
+          tourMessage.style.left = `${left}px`;
+          tourMessage.style.transform = "none";
+        }
+
+        function showStep(stepIndex) {
+          currentStep = stepIndex;
+          let step = tourSteps[stepIndex];
+
+          // Clear highlight from any previous step
+          document.querySelectorAll(".highlight-element").forEach(el =>
+            el.classList.remove("highlight-element")
+          );
+
+          // Update text
+          tourText.textContent = step.message;
+
+          // Center the box by default
+          tourMessage.style.top = "50%";
+          tourMessage.style.left = "50%";
+          tourMessage.style.transform = "translate(-50%, -50%)";
+
+          // If the step has a target, highlight it
+          if (step.target) {
+            let targetEl = document.querySelector(step.target);
+            if (targetEl) {
+              targetEl.classList.add("highlight-element");
+              const rect = targetEl.getBoundingClientRect();
+              requestAnimationFrame(() => positionTourMessage(tourMessage, rect));
+            }
+          }
+
+          prevBtn.disabled = (stepIndex === 0);
+          nextBtn.disabled = (stepIndex === tourSteps.length - 1);
+        }
+
+        prevBtn.addEventListener("click", function () {
+          if (currentStep > 0) {
+            showStep(currentStep - 1);
+          }
+        });
+
+        nextBtn.addEventListener("click", function () {
+          if (currentStep < tourSteps.length - 1) {
+            showStep(currentStep + 1);
+          }
+        });
+
+        // No more localStorage in the Close button
+        closeBtn.addEventListener("click", function () {
+          document.body.removeChild(tourOverlay);
+          document.querySelectorAll(".highlight-element").forEach(el =>
+            el.classList.remove("highlight-element")
+          );
+        });
+
+        // Start at step 0
+        showStep(0);
+      }
+
+      
+      document.getElementById("startTourBtn").addEventListener("click", startTour);
+      
+      // if (!localStorage.getItem("hasSeenTour")) {
+      //   window.addEventListener("load", function () {
+      //     setTimeout(startTour, 1000);
+      //   });
+      // }
+
+      function showLegend() {
+        // Create an overlay for the legend
+        let legendOverlay = document.createElement("div");
+        legendOverlay.id = "legendOverlay";
+        legendOverlay.style.position = "fixed";
+        legendOverlay.style.top = "0";
+        legendOverlay.style.left = "0";
+        legendOverlay.style.width = "100%";
+        legendOverlay.style.height = "100%";
+        legendOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+        legendOverlay.style.zIndex = "3000";
+        legendOverlay.style.display = "flex";
+        legendOverlay.style.alignItems = "center";
+        legendOverlay.style.justifyContent = "center";
+        
+        // Create a container for legend content
+        let legendContent = document.createElement("div");
+        legendContent.id = "legendContent";
+        legendContent.style.background = "white";
+        legendContent.style.padding = "20px";
+        legendContent.style.borderRadius = "5px";
+        legendContent.style.maxWidth = "400px";
+        legendContent.style.maxHeight = "80%";
+        legendContent.style.overflowY = "auto";
+        
+        // Add a title
+        let legendTitle = document.createElement("h2");
+        legendTitle.textContent = "Map Legend";
+        legendTitle.style.textAlign = "center";
+        legendContent.appendChild(legendTitle);
+        
+        // Utility to add an individual legend item
+        function addLegendItem(iconUrl, label, description) {
+          let item = document.createElement("div");
+          item.style.display = "flex";
+          item.style.alignItems = "center";
+          item.style.marginBottom = "10px";
+          
+          let icon = document.createElement("img");
+          icon.src = iconUrl;
+          icon.style.width = "30px";
+          icon.style.height = "30px";
+          icon.style.marginRight = "10px";
+          
+          let textContainer = document.createElement("div");
+          let labelElem = document.createElement("strong");
+          labelElem.textContent = label;
+          let descElem = document.createElement("div");
+          descElem.textContent = description;
+          textContainer.appendChild(labelElem);
+          textContainer.appendChild(descElem);
+          
+          item.appendChild(icon);
+          item.appendChild(textContainer);
+          legendContent.appendChild(item);
+        }
+        
+        // Legend Items:
+        // 1. Current Location Marker and Accuracy Circle
+        addLegendItem(
+          "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+          "Current Location",
+          "This marker (with its surrounding circle) shows your current position and accuracy."
+        );
+        
+        // 2. Destination Marker (red)
+        addLegendItem(
+          "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+          "Destination",
+          "This marker indicates your selected destination on campus."
+        );
+        
+        // 3. Route (blue line)
+        let routeItem = document.createElement("div");
+        routeItem.style.display = "flex";
+        routeItem.style.alignItems = "center";
+        routeItem.style.marginBottom = "10px";
+        
+        let routeIcon = document.createElement("div");
+        routeIcon.style.width = "30px";
+        routeIcon.style.height = "5px";
+        routeIcon.style.backgroundColor = "#0000ff";
+        routeIcon.style.marginRight = "10px";
+        
+        let routeTextContainer = document.createElement("div");
+        let routeLabel = document.createElement("strong");
+        routeLabel.textContent = "Route";
+        let routeDesc = document.createElement("div");
+        routeDesc.textContent = "The blue line shows the route from your current location to your destination.";
+        routeTextContainer.appendChild(routeLabel);
+        routeTextContainer.appendChild(routeDesc);
+        
+        routeItem.appendChild(routeIcon);
+        routeItem.appendChild(routeTextContainer);
+        legendContent.appendChild(routeItem);
+        
+        // Close Legend Button
+        let closeLegendBtn = document.createElement("button");
+        closeLegendBtn.textContent = "Close Legend";
+        closeLegendBtn.style.display = "block";
+        closeLegendBtn.style.margin = "10px auto 0";
+        closeLegendBtn.addEventListener("click", function() {
+          document.body.removeChild(legendOverlay);
+        });
+        legendContent.appendChild(closeLegendBtn);
+        
+        legendOverlay.appendChild(legendContent);
+        document.body.appendChild(legendOverlay);
+      }
+
+
+      window.addEventListener("load", function () {
+        startTour(); // Immediately show the tour on load
+      });
+
+      // Re-position controls so Clear Route is beneath Start Tour, and location selector is further right
+      function setControlPositions() {
+        const speedControl = document.querySelector('.speed-control');
+        const locationSelector = document.querySelector('.location-selector');
+        const precisionBtn = document.getElementById('precisionBtn');
+        const legendBtn = document.getElementById('legendBtn');
+        const startTourBtn = document.getElementById('startTourBtn');
+        const clearRouteBtn = document.getElementById('clearRouteBtn');
+        const leafletControl = document.querySelector('.leaflet-top.leaflet-left');
+        const isMobile = window.innerWidth <= 768;
+
+        if (isMobile) {
+          // Example mobile layout
+          speedControl.style.top = '10px';
+          speedControl.style.left = '10px';
+          const speedHeight = speedControl.offsetHeight;
+
+          // Put location selector beneath speed control
+          locationSelector.style.top = `${speedHeight + 20}px`;
+          locationSelector.style.left = '10px';
+          const locationHeight = locationSelector.offsetHeight;
+
+          // Move precision button further down
+          precisionBtn.style.top = `${speedHeight + locationHeight + 40}px`;
+          precisionBtn.style.left = '10px';
+
+          // Space out Legend and Tour buttons
+          legendBtn.style.top = `${speedHeight + locationHeight + 80}px`;
+          legendBtn.style.left = '10px';
+
+          startTourBtn.style.top = `${speedHeight + locationHeight + 130}px`;
+          startTourBtn.style.left = '10px';
+
+          // Clear Route near bottom
+          clearRouteBtn.style.bottom = '20px';
+          clearRouteBtn.style.top = 'auto';
+          clearRouteBtn.style.left = '10px';
+
+          // Zoom controls even lower
+          leafletControl.style.top = `${speedHeight + locationHeight + 180}px`;
+
+        } else {
+          // Example desktop layout
+          speedControl.style.top = '10px';
+          speedControl.style.left = '10px';
+          locationSelector.style.top = '10px';
+          locationSelector.style.left = '350px';
+
+          // Lower the precision button
+          precisionBtn.style.top = '210px';   // was 165px
+          precisionBtn.style.left = '10px';
+
+          // Space out Legend and Tour
+          legendBtn.style.top = '450px';      // was 420px
+          legendBtn.style.left = '10px';
+
+          startTourBtn.style.top = '500px';   // was 450px
+          startTourBtn.style.left = '10px';
+
+          clearRouteBtn.style.top = '550px';  // just below Start Tour
+          clearRouteBtn.style.left = '10px';
+
+          // Move zoom controls down
+          leafletControl.style.top = '255px'; // was 180px
+        }
+
+        const geocoderControl = document.querySelector('.leaflet-control-geocoder');
+        if (isMobile && geocoderControl) {
+          geocoderControl.style.top = `${speedControl.offsetHeight + 20}px`;
+          geocoderControl.style.left = '10px';
+          geocoderControl.style.right = 'auto';
+        } else if (geocoderControl) {
+          geocoderControl.style.top = '10px';
+          geocoderControl.style.left = 'auto';
+          geocoderControl.style.right = '10px';
+        }
+      }
+
+      window.addEventListener('load', setControlPositions);
+      window.addEventListener('resize', setControlPositions);
+    })();
+  </script>
+</body>
+</html>
